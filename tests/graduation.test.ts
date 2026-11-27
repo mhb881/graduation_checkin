@@ -18,6 +18,7 @@ import { buildQrPayload, parseParticipantLookupInput } from "@/lib/qr";
 import { auth } from "@/lib/auth";
 import { POST as createParticipantRoute } from "@/app/api/participants/route";
 import { POST as checkInRoute } from "@/app/api/checkin/confirm/route";
+import { POST as passRoute } from "@/app/api/pass/route";
 
 const adminActor = { id: "test-admin-1", name: "测试管理员" };
 const staffActor1 = { id: "test-staff-1", name: "测试签到员A" };
@@ -215,10 +216,33 @@ describe("Graduation Check-in & Stage Management Core Logic", () => {
       "GRAD-202",
     ]);
 
-    // 5. Call next puts p1 ON_STAGE
-    const firstCall = await callNextParticipant(db, staffActor2, { broadcast: false });
-    expect(firstCall.currentOnStage.code).toBe("GRAD-201");
-    expect(firstCall.completedParticipant).toBeNull();
+    // 5. Concurrent callNext from two devices with expectedCurrentId: strictly 1 succeeds, 1 gets STAGE_STATE_CHANGED
+    const callRace = await Promise.allSettled([
+      callNextParticipant(db, staffActor2, {
+        broadcast: false,
+        expectedCurrentId: null,
+        expectedNextId: p1.id,
+      }),
+      callNextParticipant(db, staffActor1, {
+        broadcast: false,
+        expectedCurrentId: null,
+        expectedNextId: p1.id,
+      }),
+    ]);
+    const raceSuccess = callRace.filter((r) => r.status === "fulfilled");
+    const raceRejected = callRace.filter((r) => r.status === "rejected");
+    expect(raceSuccess).toHaveLength(1);
+    expect(raceRejected).toHaveLength(1);
+    if (raceSuccess[0].status === "fulfilled") {
+      expect(raceSuccess[0].value.currentOnStage.code).toBe("GRAD-201");
+      expect(raceSuccess[0].value.completedParticipant).toBeNull();
+    }
+    if (raceRejected[0].status === "rejected") {
+      expect(raceRejected[0].reason).toMatchObject({
+        status: 409,
+        code: "STAGE_STATE_CHANGED",
+      });
+    }
 
     // 6. When autoCompleteCurrent = false, calling next while someone is on stage rejects
     await expect(
@@ -355,5 +379,59 @@ describe("Graduation Check-in & Stage Management Core Logic", () => {
       })
     );
     expect(checkInRes.status).toBe(200);
+
+    // Participant pass lookup requires matching code + email
+    const wrongPassRes = await passRoute(
+      new Request("http://localhost:3000/api/pass", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: "GRAD-API-01", email: "wrong@grad.edu" }),
+      })
+    );
+    expect(wrongPassRes.status).toBe(404);
+
+    const validPassRes = await passRoute(
+      new Request("http://localhost:3000/api/pass", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: "GRAD-API-01", email: "api-grad@grad.edu" }),
+      })
+    );
+    expect(validPassRes.status).toBe(200);
+    const validPassBody = (await validPassRes.json()) as {
+      qrDataUrl: string;
+      participant: {
+        code: string;
+        checkedInAt: string | null;
+        queuePosition: number | null;
+      };
+    };
+    expect(validPassBody.qrDataUrl.startsWith("data:image/png;base64,")).toBe(true);
+    expect(validPassBody.participant.code).toBe("GRAD-API-01");
+    expect(validPassBody.participant.checkedInAt).not.toBeNull();
+    expect(validPassBody.participant.queuePosition).toBeNull();
+
+    // Join stage queue and verify pass lookup by name + email returns queuePosition = 1
+    await joinStageQueue(db, "GRAD-API-01", "manual", staffActor2, {
+      broadcast: false,
+    });
+
+    const byNamePassRes = await passRoute(
+      new Request("http://localhost:3000/api/pass", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          identifier: "接口测试毕业生",
+          email: "api-grad@grad.edu",
+        }),
+      })
+    );
+    expect(byNamePassRes.status).toBe(200);
+    const byNameBody = (await byNamePassRes.json()) as {
+      participant: { code: string; stageStatus: string; queuePosition: number | null };
+    };
+    expect(byNameBody.participant.code).toBe("GRAD-API-01");
+    expect(byNameBody.participant.stageStatus).toBe("WAITING");
+    expect(byNameBody.participant.queuePosition).toBe(1);
   });
 });

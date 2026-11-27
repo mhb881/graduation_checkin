@@ -136,13 +136,20 @@ export default function StageCounterPage() {
       const res = await fetch("/api/stage/call-next", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ autoCompleteCurrent: true }),
+        body: JSON.stringify({
+          autoCompleteCurrent: true,
+          expectedCurrentId: snapshot?.currentOnStage?.id ?? null,
+          expectedNextId: snapshot?.waitingQueue[0]?.id,
+        }),
       });
       const data = (await res.json()) as {
         message?: string;
         snapshot?: StageSnapshot;
       };
       if (!res.ok) {
+        if (res.status === 409) {
+          await fetchLatest();
+        }
         setFeedback({
           type: res.status === 409 ? "warning" : "error",
           message: data.message ?? "呼叫下一位失败",
@@ -276,6 +283,24 @@ export default function StageCounterPage() {
                   <CheckCircle2 className="h-4 w-4" />
                   确认完成上台
                 </button>
+              </div>
+
+              <div className="mt-3 text-xs text-blue-200/90">
+                {snapshot?.waitingQueue[0] ? (
+                  <span>
+                    下一位等候：
+                    <strong className="ml-1 text-white">
+                      {snapshot.waitingQueue[0].name}
+                    </strong>
+                    <span className="ml-1.5 font-mono text-amber-300">
+                      {snapshot.waitingQueue[0].code}
+                    </span>
+                  </span>
+                ) : (
+                  <span>
+                    等候队列为空，请先在下方扫描已签到参与者的二维码加入队列
+                  </span>
+                )}
               </div>
             </div>
 

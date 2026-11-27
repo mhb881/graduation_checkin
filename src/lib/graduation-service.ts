@@ -563,7 +563,12 @@ export async function joinStageQueue(
 export async function callNextParticipant(
   db: Database,
   actor: ActorInfo,
-  options?: { autoCompleteCurrent?: boolean; broadcast?: boolean }
+  options?: {
+    autoCompleteCurrent?: boolean;
+    broadcast?: boolean;
+    expectedCurrentId?: number | null;
+    expectedNextId?: number;
+  }
 ): Promise<{
   completedParticipant: ParticipantDetail | null;
   currentOnStage: ParticipantDetail;
@@ -587,8 +592,22 @@ export async function callNextParticipant(
     const currentOnStage = activeRows.find((r) => r.stageStatus === "ON_STAGE") ?? null;
     const waitingQueue = activeRows.filter((r) => r.stageStatus === "WAITING");
 
+    if (
+      options?.expectedCurrentId !== undefined &&
+      (currentOnStage?.id ?? null) !== options.expectedCurrentId
+    ) {
+      return { status: "STATE_CHANGED" as const };
+    }
+
     if (waitingQueue.length === 0) {
       return { status: "QUEUE_EMPTY" as const };
+    }
+
+    if (
+      options?.expectedNextId !== undefined &&
+      waitingQueue[0].id !== options.expectedNextId
+    ) {
+      return { status: "STATE_CHANGED" as const };
     }
 
     if (currentOnStage && !autoCompleteCurrent) {
@@ -646,6 +665,14 @@ export async function callNextParticipant(
       nextId: nextParticipant.id,
     };
   });
+
+  if (outcome.status === "STATE_CHANGED") {
+    throw new ServiceError(
+      409,
+      "STAGE_STATE_CHANGED",
+      "舞台状态已被其他设备更新，请确认当前台上人员后重试"
+    );
+  }
 
   if (outcome.status === "QUEUE_EMPTY") {
     throw new ServiceError(

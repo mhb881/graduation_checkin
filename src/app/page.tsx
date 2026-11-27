@@ -11,6 +11,7 @@ import {
   Monitor,
   QrCode,
   ShieldCheck,
+  Ticket,
 } from "lucide-react";
 import type { CurrentActor } from "@/components/AppShell";
 
@@ -72,6 +73,14 @@ export default function HomePage() {
       roleHint: "公开投影屏幕",
       icon: Monitor,
       accent: "bg-slate-900 text-white",
+    },
+    {
+      href: "/pass",
+      title: "参与者专属二维码",
+      desc: "毕业生输入唯一编号与邮箱获取专属入场券二维码，签到及上台时亮码给工作人员扫描。",
+      roleHint: "参与者入口",
+      icon: Ticket,
+      accent: "bg-teal-700 text-white",
     },
     {
       href: "/dashboard",

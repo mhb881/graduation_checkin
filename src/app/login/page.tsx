@@ -159,12 +159,19 @@ function LoginFormContent() {
           </div>
         </div>
 
-        <div className="mt-4 text-center">
+        <div className="mt-4 flex items-center justify-center gap-4 text-center">
+          <Link
+            href="/pass"
+            className="text-xs font-medium text-slate-500 hover:text-blue-800"
+          >
+            参与者获取个人二维码 →
+          </Link>
+          <span className="text-slate-300">|</span>
           <Link
             href="/display"
             className="text-xs font-medium text-slate-500 hover:text-blue-800"
           >
-            无需登录直接打开舞台大屏 →
+            打开舞台大屏 →
           </Link>
         </div>
       </div>

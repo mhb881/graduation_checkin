@@ -67,28 +67,40 @@ export function QrScannerPanel({
       const html5QrCode = new Html5Qrcode(containerId, { verbose: false });
       scannerRef.current = html5QrCode;
 
-      await html5QrCode.start(
-        { facingMode: "environment" },
-        {
-          fps: 10,
-          qrbox: { width: 220, height: 220 },
-          aspectRatio: 1,
-        },
-        (decodedText) => {
-          const now = Date.now();
-          if (
-            decodedText === lastScanRef.current.text &&
-            now - lastScanRef.current.time < 1800
-          ) {
-            return;
-          }
-          lastScanRef.current = { text: decodedText, time: now };
-          void onScan(decodedText, "qr");
-        },
-        () => {
-          // Ignore per-frame decode misses
+      const scanConfig = {
+        fps: 10,
+        qrbox: { width: 220, height: 220 },
+        aspectRatio: 1,
+      };
+      const onSuccess = (decodedText: string) => {
+        const now = Date.now();
+        if (
+          decodedText === lastScanRef.current.text &&
+          now - lastScanRef.current.time < 1800
+        ) {
+          return;
         }
-      );
+        lastScanRef.current = { text: decodedText, time: now };
+        void onScan(decodedText, "qr");
+      };
+
+      try {
+        await html5QrCode.start(
+          { facingMode: "environment" },
+          scanConfig,
+          onSuccess,
+          () => {}
+        );
+      } catch {
+        const cameras = await Html5Qrcode.getCameras();
+        if (!cameras || cameras.length === 0) {
+          throw new Error("未检测到可用摄像头");
+        }
+        const preferred =
+          cameras.find((c) => /back|rear|environment/i.test(c.label)) ??
+          cameras[0];
+        await html5QrCode.start(preferred.id, scanConfig, onSuccess, () => {});
+      }
       setCameraActive(true);
     } catch (err) {
       const message =

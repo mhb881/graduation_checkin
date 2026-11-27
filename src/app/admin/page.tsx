@@ -11,8 +11,10 @@ import {
   QrCode,
   RefreshCw,
   Search,
+  Ticket,
   X,
 } from "lucide-react";
+import QRCode from "qrcode";
 import { AppShell } from "@/components/AppShell";
 import {
   CheckInBadge,
@@ -65,6 +67,11 @@ export default function AdminPage() {
   const [qrModal, setQrModal] = useState<QrModalData | null>(null);
   const [qrLoading, setQrLoading] = useState(false);
   const [copiedPayload, setCopiedPayload] = useState(false);
+  const [portalQrModal, setPortalQrModal] = useState<{
+    url: string;
+    dataUrl: string;
+  } | null>(null);
+  const [copiedPortalUrl, setCopiedPortalUrl] = useState(false);
 
   const loadParticipants = useCallback(async () => {
     setLoading(true);
@@ -119,6 +126,17 @@ export default function AdminPage() {
     setFormCode(p.code);
     setFormError(null);
     setFormOpen(true);
+  }
+
+  async function openPortalQrModal() {
+    const passUrl = `${window.location.origin}/pass`;
+    const dataUrl = await QRCode.toDataURL(passUrl, {
+      width: 320,
+      margin: 2,
+      errorCorrectionLevel: "M",
+    });
+    setCopiedPortalUrl(false);
+    setPortalQrModal({ url: passUrl, dataUrl });
   }
 
   async function handleSaveParticipant(e: React.FormEvent) {
@@ -302,6 +320,14 @@ export default function AdminPage() {
                 >
                   <Printer className="h-4 w-4" />
                   打印名单
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void openPortalQrModal()}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-900 hover:bg-blue-100"
+                >
+                  <Ticket className="h-4 w-4" />
+                  学生领码二维码
                 </button>
                 <button
                   type="button"
@@ -632,6 +658,78 @@ export default function AdminPage() {
                       <>
                         <Copy className="h-3.5 w-3.5" />
                         复制签名内容
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Student Pass Portal QR Modal */}
+          {portalQrModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
+              <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl text-center">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <h2 className="text-base font-semibold text-slate-900">
+                    学生领码落地页二维码
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => setPortalQrModal(null)}
+                    className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <p className="mt-3 text-xs text-slate-600">
+                  可打印张贴在会场入口，毕业生扫码即可输入姓名/编号与邮箱领取个人专属入场二维码。
+                </p>
+
+                <div className="mx-auto mt-3 flex w-fit items-center justify-center rounded-xl border border-slate-200 bg-white p-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={portalQrModal.dataUrl}
+                    alt="学生领码入口二维码"
+                    className="h-56 w-56 bg-white"
+                  />
+                </div>
+
+                <div className="mt-2 truncate rounded-lg bg-slate-50 px-2.5 py-1.5 font-mono text-xs text-slate-600">
+                  {portalQrModal.url}
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <a
+                    href={portalQrModal.dataUrl}
+                    download="student-pass-portal.png"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-blue-900 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-800"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    下载海报码
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void navigator.clipboard
+                        .writeText(portalQrModal.url)
+                        .then(() => {
+                          setCopiedPortalUrl(true);
+                          setTimeout(() => setCopiedPortalUrl(false), 1800);
+                        });
+                    }}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                  >
+                    {copiedPortalUrl ? (
+                      <>
+                        <Check className="h-3.5 w-3.5 text-emerald-600" />
+                        已复制链接
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3.5 w-3.5" />
+                        复制领码链接
                       </>
                     )}
                   </button>
