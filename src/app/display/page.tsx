@@ -68,10 +68,12 @@ export default function StageDisplayPage() {
       }
     });
 
-    // Lightweight fallback sync every 5 seconds in case of proxy/reconnect delay
+    // Lightweight fallback sync every 2 seconds for multi-instance Serverless deployments
     const fallbackTimer = setInterval(() => {
-      void fetchSnapshot();
-    }, 5_000);
+      if (!document.hidden) {
+        void fetchSnapshot();
+      }
+    }, 2_000);
 
     const handleFsChange = () => {
       setIsFullscreen(Boolean(document.fullscreenElement));

@@ -72,8 +72,15 @@ export default function StageCounterPage() {
       }
     });
 
+    const fallbackTimer = setInterval(() => {
+      if (!document.hidden) {
+        void fetchLatest();
+      }
+    }, 2_500);
+
     return () => {
       active = false;
+      clearInterval(fallbackTimer);
       eventSource.close();
     };
   }, [fetchLatest]);

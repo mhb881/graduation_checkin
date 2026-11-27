@@ -100,6 +100,23 @@ pnpm start
 
 ---
 
+## Vercel 部署说明
+
+1. 在云端准备托管 PostgreSQL（如 Neon 或 Supabase），获取带 `?sslmode=require` 的连接池 `DATABASE_URL`。
+2. 在本地临时使用云端连接串同步表结构并初始化数据：
+   ```bash
+   DATABASE_URL="postgresql://..." pnpm exec drizzle-kit push --force
+   DATABASE_URL="postgresql://..." pnpm exec tsx src/db/seed.ts
+   ```
+3. 在 Vercel 导入 GitHub 仓库，配置环境变量：
+   - `DATABASE_URL`
+   - `BETTER_AUTH_SECRET`（32 位以上随机字符串）
+   - `BETTER_AUTH_URL`（如 `https://your-app.vercel.app`，未配置时自动回退 Vercel 系统域名）
+   - `QR_SIGNING_SECRET`
+4. 为适配 Vercel Serverless 多实例环境，`/display`、`/stage` 与 `/dashboard` 均采用「SSE + 2~3 秒后台可见性感知轮询」混合同步机制，确保多设备操作实时一致。
+
+---
+
 ## 测试与质量验证
 
 ```bash

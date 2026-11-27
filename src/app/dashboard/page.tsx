@@ -69,7 +69,14 @@ export default function DashboardPage() {
       }
     });
 
+    const fallbackTimer = setInterval(() => {
+      if (!document.hidden) {
+        void fetchStats();
+      }
+    }, 3_000);
+
     return () => {
+      clearInterval(fallbackTimer);
       eventSource.close();
     };
   }, [fetchStats]);

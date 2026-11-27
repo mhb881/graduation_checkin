@@ -23,7 +23,9 @@ export function getPool(): Pool {
     }
     globalForDb.__pgPool = new Pool({
       connectionString,
-      max: 20,
+      max: process.env.VERCEL ? 5 : 15,
+      idleTimeoutMillis: 20_000,
+      connectionTimeoutMillis: 10_000,
     });
     globalForDb.__pgConnectionString = connectionString;
   }
